@@ -1,0 +1,32 @@
+{
+  "name": "NewsPost",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "News post title"
+    },
+    "content": {
+      "type": "string",
+      "description": "News post content"
+    },
+    "image_url": {
+      "type": "string",
+      "description": "Optional image for the news post"
+    },
+    "author_email": {
+      "type": "string",
+      "description": "Admin who posted the news"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether this news post is visible"
+    }
+  },
+  "required": [
+    "title",
+    "content",
+    "author_email"
+  ]
+}
