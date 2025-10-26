@@ -1,0 +1,61 @@
+{
+  "name": "PublicUserDirectory",
+  "type": "object",
+  "properties": {
+    "user_email": {
+      "type": "string",
+      "description": "User's email"
+    },
+    "user_id": {
+      "type": "string",
+      "description": "User's ID"
+    },
+    "full_name": {
+      "type": "string",
+      "description": "User's full name"
+    },
+    "user_type": {
+      "type": "string",
+      "enum": [
+        "student",
+        "tutor"
+      ],
+      "description": "User type"
+    },
+    "avatar_url": {
+      "type": "string",
+      "description": "User's avatar"
+    },
+    "last_active": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Last active time"
+    },
+    "tutor_rating": {
+      "type": "number",
+      "default": 0
+    },
+    "student_rating": {
+      "type": "number",
+      "default": 0
+    },
+    "peer_points": {
+      "type": "number",
+      "default": 0
+    },
+    "is_qualified_teacher": {
+      "type": "boolean",
+      "default": false
+    },
+    "role": {
+      "type": "string",
+      "description": "admin or user"
+    }
+  },
+  "required": [
+    "user_email",
+    "user_id",
+    "full_name",
+    "user_type"
+  ]
+}
