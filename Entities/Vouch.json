@@ -1,0 +1,39 @@
+{
+  "name": "Vouch",
+  "type": "object",
+  "properties": {
+    "gig_id": {
+      "type": "string",
+      "description": "The ID of the MarketplaceRequest being vouched for"
+    },
+    "voucher_email": {
+      "type": "string",
+      "description": "Email of the person giving the vouch"
+    },
+    "vouchee_email": {
+      "type": "string",
+      "description": "Email of the person being vouched for"
+    },
+    "vouch_type": {
+      "type": "string",
+      "enum": [
+        "tutor_rating",
+        "peer_points",
+        "student_rating"
+      ],
+      "description": "Type of points given: tutor_rating (student→tutor), peer_points (student→student helper), student_rating (tutor→student)"
+    },
+    "vouch_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date when vouch was given (for daily limit tracking)"
+    }
+  },
+  "required": [
+    "gig_id",
+    "voucher_email",
+    "vouchee_email",
+    "vouch_type",
+    "vouch_date"
+  ]
+}
