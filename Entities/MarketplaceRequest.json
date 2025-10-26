@@ -1,0 +1,144 @@
+{
+  "name": "MarketplaceRequest",
+  "type": "object",
+  "properties": {
+    "request_type": {
+      "type": "string",
+      "enum": [
+        "seeking_help"
+      ],
+      "description": "Students create help requests"
+    },
+    "help_from": {
+      "type": "string",
+      "enum": [
+        "tutor",
+        "student",
+        "anyone"
+      ],
+      "default": "anyone",
+      "description": "Who can help: tutor only, student only, or anyone"
+    },
+    "author_email": {
+      "type": "string"
+    },
+    "author_name": {
+      "type": "string"
+    },
+    "author_avatar_url": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "subject": {
+      "type": "string",
+      "enum": [
+        "math",
+        "science",
+        "programming",
+        "writing",
+        "languages",
+        "history",
+        "business",
+        "art",
+        "music",
+        "other"
+      ]
+    },
+    "compensation_type": {
+      "type": "string",
+      "enum": [
+        "free",
+        "paid",
+        "undecided"
+      ],
+      "default": "undecided"
+    },
+    "offered_price": {
+      "type": "string",
+      "description": "Price student is willing to pay, if compensation_type is paid"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "open",
+        "in_session",
+        "awaiting_payment",
+        "completed",
+        "cancelled"
+      ],
+      "default": "open"
+    },
+    "responder_email": {
+      "type": "string"
+    },
+    "responder_name": {
+      "type": "string"
+    },
+    "session_start_time": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "session_end_time": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the session ended"
+    },
+    "session_duration_minutes": {
+      "type": "number",
+      "description": "Duration of the session in minutes"
+    },
+    "session_force_started": {
+      "type": "boolean",
+      "default": false,
+      "description": "Session was force started without offline checks"
+    },
+    "session_ended_by_email": {
+      "type": "string",
+      "description": "Email of user who ended the session"
+    },
+    "session_ended_by_name": {
+      "type": "string",
+      "description": "Name of user who ended the session"
+    },
+    "meeting_link": {
+      "type": "string"
+    },
+    "link_confirmed": {
+      "type": "boolean",
+      "default": false,
+      "description": "Student confirms they received the link"
+    },
+    "payment_instructions": {
+      "type": "string",
+      "description": "Tutor's payment instructions (Venmo, PayPal, etc.)"
+    },
+    "payment_instructions_sent": {
+      "type": "boolean",
+      "default": false,
+      "description": "Tutor has sent payment instructions"
+    },
+    "student_paid": {
+      "type": "boolean",
+      "default": false,
+      "description": "Student confirmed they paid"
+    },
+    "tutor_confirmed_payment": {
+      "type": "boolean",
+      "default": false,
+      "description": "Tutor confirmed they received payment"
+    }
+  },
+  "required": [
+    "request_type",
+    "author_email",
+    "author_name",
+    "title",
+    "description",
+    "subject"
+  ]
+}
