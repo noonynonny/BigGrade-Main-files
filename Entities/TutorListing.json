@@ -1,0 +1,64 @@
+{
+  "name": "TutorListing",
+  "type": "object",
+  "properties": {
+    "tutor_email": {
+      "type": "string",
+      "description": "Email of the tutor offering this service"
+    },
+    "tutor_name": {
+      "type": "string",
+      "description": "Name of the tutor"
+    },
+    "tutor_avatar_url": {
+      "type": "string",
+      "description": "Avatar of the tutor"
+    },
+    "title": {
+      "type": "string",
+      "description": "Title of the service offered"
+    },
+    "description": {
+      "type": "string",
+      "description": "Detailed description of the tutoring service"
+    },
+    "subject": {
+      "type": "string",
+      "enum": [
+        "math",
+        "science",
+        "programming",
+        "writing",
+        "languages",
+        "history",
+        "business",
+        "art",
+        "music",
+        "other"
+      ],
+      "description": "Subject area"
+    },
+    "price": {
+      "type": "string",
+      "description": "Price information (e.g., '$25/hour', 'Free', '$100 for 5 sessions')"
+    },
+    "sessions": {
+      "type": "number",
+      "description": "Number of sessions included in the package"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether this listing is currently active"
+    }
+  },
+  "required": [
+    "tutor_email",
+    "tutor_name",
+    "title",
+    "description",
+    "subject",
+    "price",
+    "sessions"
+  ]
+}
