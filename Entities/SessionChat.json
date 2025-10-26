@@ -1,0 +1,34 @@
+{
+  "name": "SessionChat",
+  "type": "object",
+  "properties": {
+    "gig_id": {
+      "type": "string",
+      "description": "The MarketplaceRequest ID this chat is for"
+    },
+    "sender_email": {
+      "type": "string"
+    },
+    "sender_name": {
+      "type": "string"
+    },
+    "message": {
+      "type": "string"
+    },
+    "message_type": {
+      "type": "string",
+      "enum": [
+        "text",
+        "meeting_link",
+        "system"
+      ],
+      "default": "text"
+    }
+  },
+  "required": [
+    "gig_id",
+    "sender_email",
+    "sender_name",
+    "message"
+  ]
+}
