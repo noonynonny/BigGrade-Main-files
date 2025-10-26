@@ -1,0 +1,49 @@
+{
+  "name": "Megathread",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Title of the megathread"
+    },
+    "content": {
+      "type": "string",
+      "description": "Main content of the megathread"
+    },
+    "author_type": {
+      "type": "string",
+      "enum": [
+        "student",
+        "tutor"
+      ],
+      "description": "Whether posted by a student or tutor"
+    },
+    "subject": {
+      "type": "string",
+      "enum": [
+        "math",
+        "science",
+        "programming",
+        "writing",
+        "languages",
+        "history",
+        "business",
+        "art",
+        "music",
+        "general",
+        "other"
+      ],
+      "description": "Subject category"
+    },
+    "author_name": {
+      "type": "string",
+      "description": "Name of the author"
+    }
+  },
+  "required": [
+    "title",
+    "content",
+    "author_type",
+    "subject"
+  ]
+}
