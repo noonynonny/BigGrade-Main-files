@@ -1,0 +1,40 @@
+{
+  "name": "ThreadReply",
+  "type": "object",
+  "properties": {
+    "megathread_id": {
+      "type": "string",
+      "description": "ID of the megathread this reply belongs to"
+    },
+    "author_email": {
+      "type": "string",
+      "description": "Email of the person replying"
+    },
+    "author_name": {
+      "type": "string",
+      "description": "Name of the person replying"
+    },
+    "author_avatar_url": {
+      "type": "string",
+      "description": "Avatar URL of the person replying"
+    },
+    "author_type": {
+      "type": "string",
+      "enum": [
+        "student",
+        "tutor"
+      ],
+      "description": "Whether the author is a student or tutor"
+    },
+    "content": {
+      "type": "string",
+      "description": "The reply content"
+    }
+  },
+  "required": [
+    "megathread_id",
+    "author_email",
+    "author_name",
+    "content"
+  ]
+}
