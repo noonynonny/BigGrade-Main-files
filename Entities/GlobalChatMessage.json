@@ -1,0 +1,23 @@
+{
+  "name": "GlobalChatMessage",
+  "type": "object",
+  "properties": {
+    "sender_email": {
+      "type": "string"
+    },
+    "sender_name": {
+      "type": "string"
+    },
+    "sender_avatar_url": {
+      "type": "string"
+    },
+    "message": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "sender_email",
+    "sender_name",
+    "message"
+  ]
+}
