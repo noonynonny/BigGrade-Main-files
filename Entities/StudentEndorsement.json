@@ -1,0 +1,23 @@
+{
+  "name": "StudentEndorsement",
+  "type": "object",
+  "properties": {
+    "gig_id": {
+      "type": "string",
+      "description": "The ID of the MarketplaceRequest"
+    },
+    "endorser_email": {
+      "type": "string",
+      "description": "Email of the tutor who is endorsing"
+    },
+    "endorsee_email": {
+      "type": "string",
+      "description": "Email of the student being endorsed"
+    }
+  },
+  "required": [
+    "gig_id",
+    "endorser_email",
+    "endorsee_email"
+  ]
+}
