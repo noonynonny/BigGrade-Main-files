@@ -1,0 +1,40 @@
+{
+  "name": "SessionNotification",
+  "type": "object",
+  "properties": {
+    "gig_id": {
+      "type": "string"
+    },
+    "recipient_email": {
+      "type": "string"
+    },
+    "notification_type": {
+      "type": "string",
+      "enum": [
+        "tutor_accepted",
+        "student_approved",
+        "session_started",
+        "payment_reminder",
+        "session_completed"
+      ]
+    },
+    "message": {
+      "type": "string"
+    },
+    "is_read": {
+      "type": "boolean",
+      "default": false
+    },
+    "redirect_to_session": {
+      "type": "boolean",
+      "default": false,
+      "description": "If true, student should be auto-redirected to session chat"
+    }
+  },
+  "required": [
+    "gig_id",
+    "recipient_email",
+    "notification_type",
+    "message"
+  ]
+}
