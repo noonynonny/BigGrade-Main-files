@@ -1,229 +1,249 @@
 import React, { useState, useRef, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import firebaseClient from "@/firebase/firebaseClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Send, User, MessageSquare } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { format } from "date-fns";
 
 export default function MegathreadView() {
-  const urlParams = new URLSearchParams(window.location.search);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const urlParams = new URLSearchParams(location.search);
   const threadId = urlParams.get('id');
   const [replyContent, setReplyContent] = useState("");
   const repliesEndRef = useRef(null);
   const queryClient = useQueryClient();
+  const [replies, setReplies] = useState([]);
 
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
-    queryFn: () => base44.auth.me(),
-  });
-
-  const { data: megathread } = useQuery({
-    queryKey: ['megathread', threadId],
     queryFn: async () => {
-      const threads = await base44.entities.Megathread.filter({ id: threadId });
-      return threads[0];
+      return new Promise((resolve) => {
+        const unsubscribe = firebaseClient.auth.onAuthStateChanged((user) => {
+          unsubscribe();
+          resolve(user);
+        });
+      });
     },
+    staleTime: Infinity,
+  });
+
+  // Get megathread data
+  const { data: thread, isLoading: threadLoading } = useQuery({
+    queryKey: ['megathread', threadId],
+    queryFn: () => firebaseClient.entities.Megathread.get(threadId),
     enabled: !!threadId,
   });
 
-  const { data: replies, isLoading } = useQuery({
-    queryKey: ['threadReplies', threadId],
-    queryFn: () => base44.entities.ThreadReply.filter({ megathread_id: threadId }, 'created_date', 200),
-    enabled: !!threadId,
-    refetchInterval: 3000,
-    initialData: [],
-  });
+  // Subscribe to replies
+  useEffect(() => {
+    if (!threadId) return;
 
-  const postReplyMutation = useMutation({
-    mutationFn: (data) => base44.entities.ThreadReply.create(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['threadReplies', threadId] });
-      setReplyContent("");
-    },
-  });
+    const unsubscribe = firebaseClient.entities.ThreadReply.subscribe(
+      { megathread_id: threadId },
+      (repliesData) => {
+        setReplies(repliesData);
+      }
+    );
 
+    // Cleanup subscription on unmount
+    return () => unsubscribe();
+  }, [threadId]);
+
+  // Scroll to bottom when replies change
   useEffect(() => {
     repliesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [replies]);
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (!replyContent.trim() || !user) return;
-
-    postReplyMutation.mutate({
+  const createReplyMutation = useMutation({
+    mutationFn: (newReply) => firebaseClient.entities.ThreadReply.create({
+      ...newReply,
       megathread_id: threadId,
-      author_email: user.email,
-      author_name: user.full_name,
-      author_avatar_url: user.avatar_url,
-      author_type: user.user_type,
-      content: replyContent.trim()
+      author_name: user?.displayName || 'Anonymous',
+      author_email: user?.email || '',
+      author_avatar_url: user?.photoURL || '',
+      created_date: new Date().toISOString()
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['threadReplies', threadId]);
+      setReplyContent("");
+    },
+  });
+
+  const handleReplySubmit = (e) => {
+    e.preventDefault();
+    if (!replyContent.trim()) return;
+
+    createReplyMutation.mutate({
+      content: replyContent,
     });
   };
 
-  if (!megathread) {
+  if (!threadId) {
     return (
-      <div className="text-center py-12">
-        <div className="inline-block w-12 h-12 border-4 border-[#00D9FF] border-t-[#FF0080] rounded-full animate-spin"></div>
+      <div className="max-w-4xl mx-auto px-4 py-8">
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Megathread not found</h2>
+          <p className="text-gray-600 mb-4">Please select a valid megathread to view.</p>
+          <Link 
+            to={createPageUrl("MegathreadView")} 
+            className="text-indigo-600 hover:text-indigo-800 font-medium"
+          >
+            ← Back to Megathreads
+          </Link>
+        </div>
       </div>
     );
   }
 
-  const subjectColors = {
-    math: "#00FFFF",
-    science: "#FF1493",
-    programming: "#FFFF00",
-    writing: "#00FF00",
-    languages: "#FF6B6B",
-    history: "#9D4EDD",
-    business: "#06FFA5",
-    art: "#FFB627",
-    music: "#FF499E",
-    general: "#06D6A0",
-    other: "#EF476F"
-  };
+  if (threadLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
 
-  const backUrl = megathread.author_type === 'student' 
-    ? createPageUrl('StudentsDashboard') 
-    : createPageUrl('TutorsDashboard');
+  if (!thread) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-8">
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Megathread not found</h2>
+          <p className="text-gray-600 mb-4">The requested megathread could not be found.</p>
+          <Link 
+            to={createPageUrl("MegathreadView")} 
+            className="text-indigo-600 hover:text-indigo-800 font-medium"
+          >
+            ← Back to Megathreads
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <Link to={backUrl} className="brutalist-button bg-white text-black p-3">
-          <ArrowLeft className="w-5 h-5"/>
+    <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="mb-6">
+        <Link 
+          to={createPageUrl("MegathreadView")} 
+          className="flex items-center text-indigo-600 hover:text-indigo-800 font-medium"
+        >
+          <ArrowLeft className="h-5 w-5 mr-1" />
+          Back to Megathreads
         </Link>
-        <h1 className="text-4xl font-black text-white neon-text uppercase tracking-tight" style={{ color: "var(--primary)" }}>
-          MEGATHREAD
-        </h1>
       </div>
 
-      {/* Original Megathread Post */}
-      <div className="brutalist-card p-8 bg-gradient-to-br from-white to-gray-50">
-        <div className="flex items-start justify-between mb-4">
-          <div 
-            className="px-4 py-2 border-3 border-black font-black text-sm uppercase"
-            style={{ backgroundColor: subjectColors[megathread.subject] || "#F5F5F5" }}
-          >
-            {megathread.subject}
+      <div className="bg-white rounded-lg shadow mb-6">
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex justify-between items-start">
+            <h1 className="text-2xl font-bold text-gray-900">{thread.title}</h1>
+            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-indigo-100 text-indigo-800">
+              {thread.author_type}
+            </span>
           </div>
-          <div className="text-sm font-bold text-gray-500">
-            {format(new Date(megathread.created_date), "MMM d, yyyy 'at' h:mm a")}
-          </div>
-        </div>
-
-        <h2 className="text-4xl font-black text-black uppercase mb-4 leading-tight">
-          {megathread.title}
-        </h2>
-
-        <div className="flex items-center gap-3 mb-6">
-          <Link to={createPageUrl(`ViewProfile?email=${encodeURIComponent(megathread.created_by)}`)}>
-            <div className="w-14 h-14 bg-gradient-to-br from-[#00D9FF] to-[#B026FF] rounded-full border-3 border-black flex items-center justify-center overflow-hidden">
-              <User className="w-7 h-7 text-white" />
+          <div className="mt-4 flex items-center">
+            <div className="flex-shrink-0">
+              {thread.author_avatar_url ? (
+                <img className="h-10 w-10 rounded-full" src={thread.author_avatar_url} alt={thread.author_name} />
+              ) : (
+                <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center">
+                  <User className="h-6 w-6 text-indigo-600" />
+                </div>
+              )}
             </div>
-          </Link>
-          <div>
-            <p className="font-black text-black text-lg">{megathread.author_name}</p>
-            <p className="font-bold text-gray-600 text-sm uppercase">
-              {megathread.author_type === 'tutor' ? '🎓 TUTOR' : '📚 STUDENT'}
-            </p>
+            <div className="ml-3">
+              <p className="text-sm font-medium text-gray-900">{thread.author_name}</p>
+              <p className="text-sm text-gray-500">
+                {thread.created_date ? format(new Date(thread.created_date), "MMMM d, yyyy 'at' h:mm a") : "Unknown date"}
+              </p>
+            </div>
           </div>
         </div>
-
-        <div className="p-6 bg-white border-3 border-black">
-          <p className="text-black font-bold text-lg whitespace-pre-wrap">
-            {megathread.content}
-          </p>
-        </div>
-
-        <div className="mt-4 flex items-center gap-2 text-gray-600">
-          <MessageSquare className="w-5 h-5" />
-          <span className="font-black text-sm">{replies.length} REPLIES</span>
+        <div className="p-6">
+          <div className="prose max-w-none">
+            <p className="text-gray-700">{thread.content}</p>
+          </div>
         </div>
       </div>
 
-      {/* Replies Section */}
-      <div className="brutalist-card p-6">
-        <h3 className="text-2xl font-black text-black uppercase mb-6 flex items-center gap-2">
-          <MessageSquare className="w-6 h-6" />
-          DISCUSSION ({replies.length})
-        </h3>
-
-        <div className="space-y-4 mb-6 max-h-[600px] overflow-y-auto pr-2">
-          {isLoading ? (
-            <div className="text-center py-12">
-              <div className="inline-block w-8 h-8 border-3 border-black border-t-[var(--primary)] rounded-full animate-spin"></div>
-            </div>
-          ) : replies.length === 0 ? (
-            <div className="text-center py-12 border-3 border-dashed border-gray-300">
-              <MessageSquare className="w-12 h-12 mx-auto mb-3 text-gray-400" />
-              <p className="font-black text-gray-500 uppercase">NO REPLIES YET</p>
-              <p className="font-bold text-gray-400 text-sm mt-1">Be the first to join the discussion!</p>
-            </div>
-          ) : (
-            replies.map((reply, index) => (
-              <div 
-                key={reply.id} 
-                className="brutalist-card p-4 bg-white hover:bg-gray-50 transition-colors"
-                style={{
-                  transform: index % 2 !== 0 ? 'rotate(0.3deg)' : 'rotate(-0.3deg)'
-                }}
-              >
-                <div className="flex items-start gap-3">
-                  <Link to={createPageUrl(`ViewProfile?email=${encodeURIComponent(reply.author_email)}`)}>
-                    <div className="w-12 h-12 bg-gradient-to-br from-[#FF0080] to-[#B026FF] rounded-full border-3 border-black flex-shrink-0 flex items-center justify-center overflow-hidden">
-                      {reply.author_avatar_url ? (
-                        <img src={reply.author_avatar_url} alt="Avatar" className="w-full h-full object-cover" />
-                      ) : (
-                        <User className="w-6 h-6 text-white" />
-                      )}
-                    </div>
-                  </Link>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Link to={createPageUrl(`ViewProfile?email=${encodeURIComponent(reply.author_email)}`)}>
-                        <p className="font-black text-black hover:underline">{reply.author_name}</p>
-                      </Link>
-                      <span className={`text-xs px-2 py-0.5 border-2 border-black font-black ${
-                        reply.author_type === 'tutor' ? 'bg-[#B026FF] text-white' : 'bg-[#00D9FF] text-black'
-                      }`}>
-                        {reply.author_type === 'tutor' ? '🎓 TUTOR' : '📚 STUDENT'}
-                      </span>
-                      <span className="text-xs font-bold text-gray-500">
-                        {format(new Date(reply.created_date), "MMM d 'at' h:mm a")}
-                      </span>
-                    </div>
-                    <p className="font-bold text-black whitespace-pre-wrap">{reply.content}</p>
+      <div className="bg-white rounded-lg shadow">
+        <div className="p-6 border-b border-gray-200">
+          <h2 className="text-lg font-medium text-gray-900">
+            Replies ({replies.length})
+          </h2>
+        </div>
+        <div className="divide-y divide-gray-200 max-h-96 overflow-y-auto">
+          {replies.length > 0 ? (
+            replies.map((reply) => (
+              <div key={reply.id} className="p-6">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    {reply.author_avatar_url ? (
+                      <img className="h-10 w-10 rounded-full" src={reply.author_avatar_url} alt={reply.author_name} />
+                    ) : (
+                      <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center">
+                        <User className="h-6 w-6 text-indigo-600" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="ml-3">
+                    <p className="text-sm font-medium text-gray-900">{reply.author_name}</p>
+                    <p className="text-sm text-gray-500">
+                      {reply.created_date ? format(new Date(reply.created_date), "MMMM d, yyyy 'at' h:mm a") : "Unknown date"}
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-4 ml-13">
+                  <div className="text-gray-700">
+                    <p>{reply.content}</p>
                   </div>
                 </div>
               </div>
             ))
+          ) : (
+            <div className="p-6 text-center">
+              <MessageSquare className="mx-auto h-12 w-12 text-gray-400" />
+              <h3 className="mt-2 text-sm font-medium text-gray-900">No replies yet</h3>
+              <p className="mt-1 text-sm text-gray-500">
+                Be the first to reply to this megathread.
+              </p>
+            </div>
           )}
           <div ref={repliesEndRef} />
         </div>
 
-        {/* Reply Form */}
-        <form onSubmit={handleSubmit} className="space-y-3 border-t-4 border-black pt-6">
-          <label className="block font-black text-black uppercase">
-            POST YOUR REPLY
-          </label>
-          <textarea
-            value={replyContent}
-            onChange={(e) => setReplyContent(e.target.value)}
-            className="brutalist-input w-full px-4 py-3 font-bold h-32 resize-none"
-            placeholder="SHARE YOUR THOUGHTS..."
-            required
-          />
-          <button
-            type="submit"
-            disabled={!replyContent.trim() || postReplyMutation.isPending}
-            className="brutalist-button bg-gradient-to-r from-[var(--primary)] to-[var(--secondary)] text-black px-6 py-3 flex items-center gap-2"
-          >
-            <Send className="w-5 h-5" />
-            {postReplyMutation.isPending ? "POSTING..." : "POST REPLY"}
-          </button>
-        </form>
+        {user && (
+          <div className="p-6 border-t border-gray-200">
+            <form onSubmit={handleReplySubmit}>
+              <div>
+                <label htmlFor="reply" className="block text-sm font-medium text-gray-700">
+                  Add a reply
+                </label>
+                <div className="mt-1">
+                  <textarea
+                    id="reply"
+                    rows={3}
+                    className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border border-gray-300 rounded-md p-2"
+                    placeholder="Write your reply..."
+                    value={replyContent}
+                    onChange={(e) => setReplyContent(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="mt-3 flex justify-end">
+                <button
+                  type="submit"
+                  disabled={!replyContent.trim() || createReplyMutation.isLoading}
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+                >
+                  <Send className="-ml-1 mr-2 h-5 w-5" />
+                  {createReplyMutation.isLoading ? "Sending..." : "Send"}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
       </div>
     </div>
   );

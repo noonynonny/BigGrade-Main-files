@@ -1,76 +1,95 @@
-import React from "react";
-import { MessageSquare, User, Calendar } from "lucide-react";
-import { format } from "date-fns";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { createPageUrl } from "@/utils";
-import { useQuery } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { MessageCircle, User, Calendar, Clock } from "lucide-react";
+import { format } from "date-fns";
+import firebaseClient from "@/firebase/firebaseClient";
 
-export default function MegathreadCard({ thread, isOdd }) {
-  // Get reply count for this thread
-  const { data: replies } = useQuery({
-    queryKey: ['threadRepliesCount', thread.id],
-    queryFn: () => base44.entities.ThreadReply.filter({ megathread_id: thread.id }),
-    initialData: []
-  });
+export default function MegathreadCard({ thread }) {
+  const [replyCount, setReplyCount] = useState(0);
+  const [loading, setLoading] = useState(true);
 
-  const subjectColors = {
-    math: "#00FFFF",
-    science: "#FF1493",
-    programming: "#FFFF00",
-    writing: "#00FF00",
-    languages: "#FF6B6B",
-    history: "#9D4EDD",
-    business: "#06FFA5",
-    art: "#FFB627",
-    music: "#FF499E",
-    general: "#06D6A0",
-    other: "#EF476F"
-  };
+  // Get reply count for this megathread
+  useEffect(() => {
+    if (!thread?.id) return;
+
+    const unsubscribe = firebaseClient.entities.ThreadReply.subscribe(
+      { megathread_id: thread.id },
+      (replies) => {
+        setReplyCount(replies.length);
+        setLoading(false);
+      }
+    );
+
+    // Cleanup subscription on unmount
+    return () => unsubscribe();
+  }, [thread?.id]);
 
   return (
-    <Link
-      to={createPageUrl(`MegathreadView?id=${thread.id}`)}
-      className="brutalist-card bg-white p-6 hover:translate-x-1 hover:translate-y-1 hover:shadow-[6px_6px_0_0_#000] transition-all block"
-      style={{
-        transform: isOdd ? 'rotate(0.5deg)' : 'rotate(-0.5deg)'
-      }}
-    >
-      <div className="flex items-start justify-between mb-4">
-        <div 
-          className="px-3 py-1 border-3 border-black font-black text-xs uppercase"
-          style={{ backgroundColor: subjectColors[thread.subject] || "#F5F5F5" }}
-        >
-          {thread.subject}
-        </div>
-        <div className="flex items-center gap-2 text-sm font-bold text-black">
-          <Calendar className="w-4 h-4" />
-          {format(new Date(thread.created_date), "MMM d")}
-        </div>
-      </div>
-
-      <h3 className="text-2xl font-black text-black uppercase mb-3 leading-tight">
-        {thread.title}
-      </h3>
-
-      <p className="text-black font-bold mb-4 line-clamp-3">
-        {thread.content}
-      </p>
-
-      <div className="flex items-center justify-between pt-4 border-t-3 border-black">
-        <div className="flex items-center gap-2 group">
-          <div className="w-8 h-8 bg-[#00FFFF] border-3 border-black flex items-center justify-center group-hover:bg-[#FF0080] transition-colors">
-            <User className="w-4 h-4 text-black" />
-          </div>
-          <span className="font-black text-black text-sm group-hover:underline">
-            {thread.author_name}
+    <div className="bg-white shadow overflow-hidden sm:rounded-lg">
+      <div className="px-4 py-5 sm:px-6">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg leading-6 font-medium text-gray-900">
+            {thread.title}
+          </h3>
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+            {thread.author_type}
           </span>
         </div>
-        <div className="flex items-center gap-2 text-black font-black">
-          <MessageSquare className="w-5 h-5" />
-          <span className="text-lg">{replies.length}</span>
+        <div className="mt-2 flex items-center text-sm text-gray-500">
+          <User className="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" />
+          {thread.author_name}
         </div>
       </div>
-    </Link>
+      <div className="border-t border-gray-200 px-4 py-5 sm:p-0">
+        <div className="sm:divide-y sm:divide-gray-200">
+          <div className="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+            <dt className="text-sm font-medium text-gray-500">Content</dt>
+            <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+              {thread.content}
+            </dd>
+          </div>
+          <div className="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+            <dt className="text-sm font-medium text-gray-500">Created</dt>
+            <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+              <div className="flex items-center">
+                <Calendar className="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" />
+                {thread.created_date
+                  ? format(new Date(thread.created_date), "MMMM d, yyyy")
+                  : "N/A"}
+              </div>
+              <div className="flex items-center mt-1">
+                <Clock className="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" />
+                {thread.created_date
+                  ? format(new Date(thread.created_date), "h:mm a")
+                  : "N/A"}
+              </div>
+            </dd>
+          </div>
+          <div className="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+            <dt className="text-sm font-medium text-gray-500">Activity</dt>
+            <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+              <div className="flex items-center">
+                <MessageCircle className="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" />
+                {loading ? (
+                  <span className="text-gray-500">Loading...</span>
+                ) : (
+                  <span>{replyCount} replies</span>
+                )}
+              </div>
+            </dd>
+          </div>
+        </div>
+      </div>
+      <div className="bg-gray-50 px-4 py-4 sm:px-6">
+        <div className="flex justify-end">
+          <Link
+            to={`/MegathreadView?id=${thread.id}`}
+            className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-indigo-700 bg-indigo-100 hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          >
+            View Discussion
+          </Link>
+        </div>
+      </div>
+    </div>
   );
 }

@@ -1,313 +1,239 @@
-
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { createPageUrl } from "@/utils";
-import { User, HelpCircle, GraduationCap, Users, Globe, Zap, Check, X, MessageSquare, Award } from "lucide-react";
+import { User, Clock, DollarSign, CheckCircle, XCircle } from "lucide-react";
 import { format } from "date-fns";
+import { createPageUrl } from "@/utils";
+import firebaseClient from "@/firebase/firebaseClient";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
-export default function MarketplaceRequestCard({ request, currentUser, isMyGigsView }) {
+export default function MarketplaceRequestCard({ request }) {
   const queryClient = useQueryClient();
+  const [showAcceptModal, setShowAcceptModal] = useState(false);
 
-  // Check if current user has already vouched
-  const { data: vouchData } = useQuery({
-    queryKey: ['vouchStatus', request.id, currentUser?.email],
-    queryFn: () => base44.entities.Vouch.filter({ gig_id: request.id, voucher_email: currentUser?.email }),
-    enabled: !!currentUser?.email && request.status === 'completed'
-  });
-
-  const hasVouched = vouchData && vouchData.length > 0;
-
-  const handleAccept = useMutation({
-    mutationFn: async () => {
-      // FORCE START SESSION - NO CHECKS
-      const updateData = {
-        status: 'in_session',
-        responder_email: currentUser.email,
-        responder_name: currentUser.full_name,
-        session_start_time: new Date().toISOString(),
-        session_force_started: true
-      };
-
-      await base44.entities.MarketplaceRequest.update(request.id, updateData);
-      
-      // Send notification to student to join session immediately
-      await base44.entities.SessionNotification.create({
-        gig_id: request.id,
-        recipient_email: request.author_email,
-        notification_type: 'tutor_accepted',
-        message: `${currentUser.full_name} accepted your request! Join the session NOW!`,
-        redirect_to_session: true
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['marketplaceRequests'] });
-      queryClient.invalidateQueries({ queryKey: ['myGigs'] });
-      
-      // Redirect helper to session chat immediately
-      window.location.href = createPageUrl(`SessionChat?gig=${request.id}`);
-    },
-    onError: (error) => {
-      alert(`❌ ${error.message}`);
-    }
-  });
-
-  const handleStatusUpdate = useMutation({
-    mutationFn: (status) => base44.entities.MarketplaceRequest.update(request.id, { status }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['marketplaceRequests'] });
-      queryClient.invalidateQueries({ queryKey: ['myGigs'] });
-    },
-  });
-  
-  // Vouch system with STRICT restrictions
-  const handleVouch = useMutation({
-    mutationFn: async () => {
-      // RESTRICTION 1: Check session duration (must be >= 10 minutes)
-      if (!request.session_duration_minutes || request.session_duration_minutes < 10) {
-        throw new Error("❌ Cannot vouch: Session must be at least 10 minutes long.");
-      }
-      
-      // RESTRICTION 2: Check daily vouch limit (1 per day TOTAL)
-      const today = new Date().toISOString().split('T')[0];
-      const todaysVouches = await base44.entities.Vouch.filter({ 
-        voucher_email: currentUser.email,
-        vouch_date: today
-      });
-      
-      if (todaysVouches.length > 0) {
-        throw new Error("❌ You've already vouched someone today. Come back tomorrow!");
-      }
-      
-      const helper = await base44.entities.User.filter({ email: request.responder_email });
-      const student = await base44.entities.User.filter({ email: request.author_email });
-      
-      if (!helper || helper.length === 0 || !student || student.length === 0) {
-        throw new Error("User not found");
-      }
-      
-      const helperUser = helper[0];
-      const studentUser = student[0];
-      const isVoucherStudent = currentUser.user_type === 'student';
-      const isVoucherTutor = currentUser.user_type === 'tutor';
-      
-      let vouchType = '';
-      const pointsToAdd = 5; // ALWAYS 5 POINTS
-      
-      // Student vouching for helper
-      if (isVoucherStudent && currentUser.email === request.author_email) {
-        if (helperUser.user_type === 'tutor') {
-          vouchType = 'tutor_rating';
-          await base44.entities.User.update(helperUser.id, { 
-            tutor_rating: (helperUser.tutor_rating || 0) + pointsToAdd 
-          });
-          
-          // Update PublicUserDirectory
-          const publicUsers = await base44.entities.PublicUserDirectory.filter({ user_email: helperUser.email });
-          if (publicUsers.length > 0) {
-            await base44.entities.PublicUserDirectory.update(publicUsers[0].id, { 
-              tutor_rating: (helperUser.tutor_rating || 0) + pointsToAdd 
-            });
-          }
-        } else if (helperUser.user_type === 'student') {
-          vouchType = 'peer_points';
-          await base44.entities.User.update(helperUser.id, { 
-            peer_points: (helperUser.peer_points || 0) + pointsToAdd 
-          });
-          
-          // Update PublicUserDirectory
-          const publicUsers = await base44.entities.PublicUserDirectory.filter({ user_email: helperUser.email });
-          if (publicUsers.length > 0) {
-            await base44.entities.PublicUserDirectory.update(publicUsers[0].id, { 
-              peer_points: (helperUser.peer_points || 0) + pointsToAdd 
-            });
-          }
-        }
-      }
-      
-      // Tutor vouching for student
-      if (isVoucherTutor && currentUser.email === request.responder_email) {
-        vouchType = 'student_rating';
-        await base44.entities.User.update(studentUser.id, { 
-          student_rating: (studentUser.student_rating || 0) + pointsToAdd 
+  // Get current user
+  const { data: currentUser } = useQuery({
+    queryKey: ['currentUser'],
+    queryFn: async () => {
+      return new Promise((resolve) => {
+        const unsubscribe = firebaseClient.auth.onAuthStateChanged((user) => {
+          unsubscribe();
+          resolve(user);
         });
-        
-        // Update PublicUserDirectory
-        const publicUsers = await base44.entities.PublicUserDirectory.filter({ user_email: studentUser.email });
-        if (publicUsers.length > 0) {
-          await base44.entities.PublicUserDirectory.update(publicUsers[0].id, { 
-            student_rating: (studentUser.student_rating || 0) + pointsToAdd 
-          });
-        }
-      }
-      
-      return base44.entities.Vouch.create({
-        gig_id: request.id,
-        voucher_email: currentUser.email,
-        vouchee_email: currentUser.email === request.author_email ? request.responder_email : request.author_email,
-        vouch_type: vouchType,
-        vouch_date: today
       });
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['vouchStatus'] });
-      queryClient.invalidateQueries({ queryKey: ['allUsers'] }); // Added
-      queryClient.invalidateQueries({ queryKey: ['allUsersDirectory'] }); // Added
-      queryClient.invalidateQueries({ queryKey: ['allUsersForLeaderboard'] });
-      queryClient.invalidateQueries({ queryKey: ['publicLeaderboard'] });
-      queryClient.invalidateQueries({ queryKey: ['directoryAllUsers'] });
-      alert('✅ Vouch successful! +5 points awarded!');
-    },
-    onError: (error) => {
-      alert(error.message); // Changed to display error.message directly
-    }
+    staleTime: Infinity,
   });
+
+  // Check if current user has vouched for this request
+  const { data: hasVouched } = useQuery({
+    queryKey: ['vouchCheck', request.id, currentUser?.email],
+    queryFn: async () => {
+      if (!currentUser?.email) return false;
+      const vouches = await firebaseClient.entities.Vouch.filter({
+        gig_id: request.id,
+        voucher_email: currentUser.email
+      });
+      return vouches.length > 0;
+    },
+    enabled: !!currentUser?.email,
+  });
+
+  // Accept request mutation
+  const acceptMutation = useMutation({
+    mutationFn: (status) => firebaseClient.entities.MarketplaceRequest.update(request.id, { status }),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['marketplaceRequests']);
+      setShowAcceptModal(false);
+    },
+  });
+
+  // Create vouch mutation
+  const vouchMutation = useMutation({
+    mutationFn: (vouchData) => firebaseClient.entities.Vouch.create(vouchData),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['vouchCheck', request.id, currentUser?.email]);
+    },
+  });
+
+  const handleAccept = () => {
+    acceptMutation.mutate('accepted');
+  };
+
+  const handleVouch = async () => {
+    if (!currentUser) return;
+    
+    // Check if user is a student who can vouch
+    const todaysVouches = await firebaseClient.entities.Vouch.filter({
+      voucher_email: currentUser.email,
+      created_date: '>=', // This would need to be implemented properly
+    });
+    
+    if (todaysVouches.length >= 3) {
+      alert("You've reached your daily vouch limit of 3.");
+      return;
+    }
+    
+    vouchMutation.mutate({
+      gig_id: request.id,
+      voucher_email: currentUser.email,
+      vouchee_email: currentUser.email === request.author_email ? request.responder_email : request.author_email,
+      created_date: new Date().toISOString()
+    });
+  };
 
   const isMyPost = request.author_email === currentUser?.email;
-  const canAccept = !isMyPost && request.status === 'open';
-  const isAcceptedByMe = request.responder_email === currentUser?.email;
-
-  const typeConfig = {
-    seeking_help: { icon: HelpCircle, text: "NEEDS HELP", bg: "bg-[#FF0080]" },
-  };
-  
-  const TypeIcon = typeConfig[request.request_type].icon;
-
-  // Vouch button logic - STRICT CONDITIONS (10 minutes now)
-  const canVouch = request.status === 'completed' && 
-                   !hasVouched && 
-                   (isMyPost || isAcceptedByMe) && 
-                   request.session_duration_minutes >= 10;
-  
-  let vouchButtonText = "VOUCH";
-  let canShowVouchButton = false;
-  
-  if (isMyPost && currentUser?.user_type === 'student') {
-    vouchButtonText = "VOUCH FOR HELPER (+5 PTS)";
-    canShowVouchButton = true;
-  } else if (isAcceptedByMe && currentUser?.user_type === 'tutor') {
-    vouchButtonText = "VOUCH FOR STUDENT (+5 PTS)";
-    canShowVouchButton = true;
-  }
+  const isHelper = request.responder_email === currentUser?.email;
+  const canAccept = isMyPost && request.status === 'open';
+  const canVouch = currentUser && 
+    (currentUser.email === request.author_email || currentUser.email === request.responder_email) && 
+    request.status === 'completed' && 
+    !hasVouched;
 
   return (
-    <div className={`brutalist-card p-6 flex flex-col justify-between ${request.status !== 'open' ? 'bg-gray-200' : 'bg-white'}`}>
-      <div>
-        <div className="flex justify-between items-start mb-4 gap-2">
-          <div className={`flex items-center gap-2 px-3 py-1 border-3 border-black font-black text-xs uppercase text-white ${typeConfig[request.request_type].bg}`}>
-            <TypeIcon className="w-4 h-4" />
-            {typeConfig[request.request_type].text}
-          </div>
-          <div className={`px-3 py-1 border-3 border-black font-black text-xs uppercase ${
-            request.compensation_type === 'free' ? 'bg-[#00FF41] text-black' : 
-            request.compensation_type === 'paid' ? 'bg-[#FFE500] text-black' : 
-            'bg-gray-300 text-black'
-          }`}>
-            {request.compensation_type}
-            {request.compensation_type === 'paid' && request.offered_price && (
-              <span className="ml-1">- {request.offered_price}</span>
-            )}
-          </div>
-        </div>
-        
-        {request.help_from && (
-          <div className={`flex items-center gap-2 px-3 py-1 border-2 border-black font-black text-xs uppercase mb-3 ${
-            request.help_from === 'tutor' ? 'bg-[#B026FF]' : 
-            request.help_from === 'student' ? 'bg-[#00D9FF]' : 
-            'bg-[#00FF41]'
-          } text-white`}>
-            {request.help_from === 'tutor' && <GraduationCap className="w-4 h-4" />}
-            {request.help_from === 'student' && <Users className="w-4 h-4" />}
-            {request.help_from === 'anyone' && <Globe className="w-4 h-4" />}
-            {request.help_from.toUpperCase()}
-          </div>
-        )}
-        
-        <div className="flex items-center gap-3 mb-4">
-          <Link to={createPageUrl(`ViewProfile?email=${encodeURIComponent(request.author_email)}`)}>
-            <div className="w-12 h-12 bg-gradient-to-br from-[#FF0080] to-[#B026FF] rounded-full border-3 border-black flex items-center justify-center overflow-hidden">
-                {request.author_avatar_url ? <img src={request.author_avatar_url} alt="Avatar" className="w-full h-full object-cover" /> : <User className="w-6 h-6 text-white" />}
-            </div>
-          </Link>
+    <div className="bg-white shadow rounded-lg overflow-hidden">
+      <div className="p-6">
+        <div className="flex justify-between items-start">
           <div>
-            <h4 className="font-black text-black uppercase">{request.author_name}</h4>
-            <p className="text-xs font-bold text-gray-500">{format(new Date(request.created_date), "MMM d, yyyy")}</p>
+            <h3 className="text-lg font-medium text-gray-900">{request.title}</h3>
+            <p className="mt-1 text-sm text-gray-500">{request.subject}</p>
+          </div>
+          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+            request.status === 'open' ? 'bg-green-100 text-green-800' :
+            request.status === 'accepted' ? 'bg-yellow-100 text-yellow-800' :
+            request.status === 'completed' ? 'bg-blue-100 text-blue-800' :
+            'bg-gray-100 text-gray-800'
+          }`}>
+            {request.status}
+          </span>
+        </div>
+
+        <div className="mt-4">
+          <p className="text-gray-700">{request.description}</p>
+        </div>
+
+        <div className="mt-6 flex items-center justify-between">
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              {request.author_avatar_url ? (
+                <img className="h-10 w-10 rounded-full" src={request.author_avatar_url} alt="" />
+              ) : (
+                <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
+                  <User className="h-6 w-6 text-gray-500" />
+                </div>
+              )}
+            </div>
+            <div className="ml-3">
+              <Link to={createPageUrl(`ViewProfile?email=${encodeURIComponent(request.author_email)}`)} className="text-sm font-medium text-gray-900 hover:underline">
+                {request.author_name}
+              </Link>
+              <div className="flex items-center text-sm text-gray-500">
+                <Clock className="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" />
+                {request.created_date ? format(new Date(request.created_date), "MMM d, yyyy") : "Unknown date"}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center">
+            <DollarSign className="flex-shrink-0 mr-1 h-5 w-5 text-gray-400" />
+            <span className="text-lg font-medium text-gray-900">${request.price}</span>
           </div>
         </div>
 
-        <h3 className="text-xl font-black text-black uppercase mb-2">{request.title}</h3>
-        <p className="text-sm font-bold text-black mb-4">{request.description}</p>
-        <div className="px-3 py-1 bg-black text-white border-2 border-white font-black text-sm uppercase w-fit">{request.subject}</div>
-      </div>
-      
-      <div className="pt-4 border-t-4 border-black mt-4">
-        {canAccept && (
-          <button 
-            onClick={() => handleAccept.mutate()} 
-            disabled={handleAccept.isPending} 
-            className="brutalist-button bg-gradient-to-r from-[#00FF41] to-[#00D9FF] text-black w-full flex items-center justify-center gap-2 py-3"
-          >
-            <Zap className="w-5 h-5"/> {handleAccept.isPending ? 'STARTING...' : '⚡ START SESSION NOW'}
-          </button>
-        )}
-        
-        {request.status === 'in_session' && (isMyPost || isAcceptedByMe) && (
-          <Link 
-            to={createPageUrl(`SessionChat?gig=${request.id}`)}
-            className="brutalist-button bg-gradient-to-r from-[#FF0080] to-[#B026FF] text-white w-full flex items-center justify-center gap-2 py-3"
-          >
-            <MessageSquare className="w-5 h-5"/> 🔒 REJOIN SESSION
-          </Link>
+        {request.responder_name && (
+          <div className="mt-4 pt-4 border-t border-gray-200">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                {request.responder_avatar_url ? (
+                  <img className="h-8 w-8 rounded-full" src={request.responder_avatar_url} alt="" />
+                ) : (
+                  <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center">
+                    <User className="h-4 w-4 text-gray-500" />
+                  </div>
+                )}
+              </div>
+              <div className="ml-3">
+                <p className="text-sm font-medium text-gray-900">Helper: {request.responder_name}</p>
+              </div>
+            </div>
+          </div>
         )}
 
-        {request.status === 'awaiting_payment' && (isMyPost || isAcceptedByMe) && (
-          <Link 
-            to={createPageUrl(`SessionChat?gig=${request.id}`)}
-            className="brutalist-button bg-gradient-to-r from-[#FFE500] to-[#FFB627] text-black w-full flex items-center justify-center gap-2 py-3"
-          >
-            <MessageSquare className="w-5 h-5"/> 💰 COMPLETE PAYMENT
-          </Link>
-        )}
-
-        {isMyPost && request.status === 'open' && (
-          <button onClick={() => handleStatusUpdate.mutate('cancelled')} className="brutalist-button bg-gray-500 text-white w-full flex items-center justify-center gap-2 py-3 mt-2">
-            <X className="w-5 h-5"/> CANCEL POST
-          </button>
-        )}
-
-        {/* Vouch Button - Only show if ALL conditions met */}
-        {canVouch && canShowVouchButton && (
-            <button onClick={() => handleVouch.mutate()} disabled={handleVouch.isPending} className="mt-2 brutalist-button bg-gradient-to-r from-[#FFE500] to-[#FFB627] text-black w-full flex items-center justify-center gap-2 py-3">
-                <Award className="w-5 h-5"/> {handleVouch.isPending ? 'VOUCHING...' : vouchButtonText}
+        <div className="mt-6 flex justify-between">
+          {canAccept && (
+            <button
+              onClick={() => setShowAcceptModal(true)}
+              className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            >
+              Accept Request
             </button>
-        )}
-        
-        {/* Session Too Short Warning */}
-        {request.status === 'completed' && request.session_duration_minutes < 10 && (isMyPost || isAcceptedByMe) && (
-            <div className="mt-2 text-center p-2 border-3 border-black bg-gray-300">
-                <p className="font-black text-xs text-black uppercase">⏱️ SESSION TOO SHORT FOR VOUCHING (NEEDS 10+ MIN)</p>
-                <p className="font-bold text-xs text-gray-600 mt-1">Duration: {request.session_duration_minutes} minutes</p>
-            </div>
-        )}
-        
-        {/* Already Vouched */}
-        {hasVouched && request.status === 'completed' && (
-            <div className="mt-2 text-center p-2 border-3 border-black bg-[#00FF41]"><p className="font-black text-sm text-black uppercase flex items-center justify-center gap-2"><Check className="w-5 h-5"/> VOUCHED ✓</p></div>
-        )}
+          )}
 
-        {request.status === 'completed' && !isMyPost && !isAcceptedByMe && (
-            <div className="text-center p-2 border-3 border-black bg-[#00FF41]">
-                <p className="font-black text-sm text-black uppercase flex items-center justify-center gap-2"><Check className="w-5 h-5"/> GIG COMPLETED</p>
+          {isHelper && request.status === 'accepted' && (
+            <button
+              onClick={() => acceptMutation.mutate('completed')}
+              className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+            >
+              Mark as Completed
+            </button>
+          )}
+
+          {canVouch && (
+            <button
+              onClick={handleVouch}
+              disabled={vouchMutation.isLoading}
+              className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50"
+            >
+              {vouchMutation.isLoading ? "Vouching..." : "Vouch for Helper"}
+            </button>
+          )}
+
+          {hasVouched && (
+            <div className="inline-flex items-center px-3 py-2 text-sm leading-4 font-medium text-green-800">
+              <CheckCircle className="mr-1.5 h-5 w-5 text-green-500" />
+              You've vouched
             </div>
-        )}
-        
-        {request.status === 'cancelled' && (
-            <div className="text-center p-2 border-3 border-black bg-gray-400">
-                <p className="font-black text-sm text-black uppercase">CANCELLED</p>
-            </div>
-        )}
+          )}
+        </div>
       </div>
+
+      {/* Accept Modal */}
+      {showAcceptModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-medium text-gray-900">Accept Request</h3>
+                <button
+                  onClick={() => setShowAcceptModal(false)}
+                  className="text-gray-400 hover:text-gray-500"
+                >
+                  <XCircle className="h-6 w-6" />
+                </button>
+              </div>
+              <div className="mt-2 px-7 py-3">
+                <p className="text-sm text-gray-500">
+                  Are you sure you want to accept this request? This will assign you as the helper for this task.
+                </p>
+              </div>
+              <div className="items-center px-4 py-3">
+                <button
+                  onClick={handleAccept}
+                  disabled={acceptMutation.isLoading}
+                  className="px-4 py-2 bg-indigo-600 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+                >
+                  {acceptMutation.isLoading ? "Accepting..." : "Accept Request"}
+                </button>
+                <button
+                  onClick={() => setShowAcceptModal(false)}
+                  className="mt-3 px-4 py-2 bg-white text-gray-800 text-base font-medium rounded-md w-full shadow-sm border border-gray-300 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,0 +1,54 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users collection
+    match /users/{userId} {
+      // Allow users to read their own document
+      allow read: if request.auth != null && request.auth.uid == userId;
+      // Allow users to create their own document
+      allow create: if request.auth != null && request.auth.uid == userId;
+      // Allow users to update their own document
+      allow update: if request.auth != null && request.auth.uid == userId;
+      // Allow users to delete their own document
+      allow delete: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Megathreads collection
+    match /megathreads/{documentId} {
+      // Allow authenticated users to read
+      allow read: if request.auth != null;
+      // Allow authenticated users to create
+      allow create: if request.auth != null;
+      // Allow creators to update their own documents
+      allow update: if request.auth != null && request.auth.uid == resource.data.author_id;
+      // Allow creators to delete their own documents
+      allow delete: if request.auth != null && request.auth.uid == resource.data.author_id;
+    }
+    
+    // MarketplaceRequests collection
+    match /marketplaceRequests/{documentId} {
+      // Allow authenticated users to read
+      allow read: if request.auth != null;
+      // Allow authenticated users to create
+      allow create: if request.auth != null;
+      // Allow creators to update their own documents
+      allow update: if request.auth != null && request.auth.uid == resource.data.author_id;
+      // Allow creators to delete their own documents
+      allow delete: if request.auth != null && request.auth.uid == resource.data.author_id;
+    }
+    
+    // TutorListings collection
+    match /tutorListings/{documentId} {
+      // Allow authenticated users to read
+      allow read: if request.auth != null;
+      // Allow authenticated users to create
+      allow create: if request.auth != null;
+      // Allow creators to update their own documents
+      allow update: if request.auth != null && request.auth.uid == resource.data.author_id;
+      // Allow creators to delete their own documents
+      allow delete: if request.auth != null && request.auth.uid == resource.data.author_id;
+    }
+    
+    // Other collections would follow similar patterns...
+  }
+}
