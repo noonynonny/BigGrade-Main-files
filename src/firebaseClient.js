@@ -34,9 +34,9 @@ const getFirebaseConfig = () => {
 };
 
 // Initialize Firebase
-let app;
-let auth;
-let db;
+let app = null;
+let auth = null;
+let db = null;
 
 try {
   const firebaseConfig = getFirebaseConfig();
@@ -48,10 +48,13 @@ try {
     db = getFirestore(app);
     console.log('Firebase initialized successfully');
   } else {
-    console.warn('Firebase not initialized - using demo configuration. Please set up environment variables.');
+    console.warn('Firebase not initialized - using Base44 authentication fallback.');
+    // Set auth to null explicitly to use base44 fallback
+    auth = null;
   }
 } catch (error) {
   console.error('Error initializing Firebase:', error);
+  auth = null; // Ensure auth is null on error to trigger fallback
 }
 
 // Base44 API helper functions

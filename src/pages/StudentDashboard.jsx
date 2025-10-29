@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "../firebaseClient";
+import { base44 } from "../base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, MessageSquare } from "lucide-react";
 import MegathreadCard from "../components/megathreads/megathreadCard";
@@ -14,12 +14,7 @@ export default function StudentsDashboard() {
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
     queryFn: async () => {
-      return new Promise((resolve) => {
-        const unsubscribe = firebaseClient.auth.onAuthStateChanged((user) => {
-          unsubscribe();
-          resolve(user);
-        });
-      });
+      return base44.auth();
     },
     staleTime: Infinity,
   });
@@ -27,13 +22,13 @@ export default function StudentsDashboard() {
   // Get megathreads
   const { data: megathreads, isLoading } = useQuery({
     queryKey: ['studentMegathreads'],
-    queryFn: () => firebaseClient.entities.Megathread.filter({ author_type: 'student' }, '-created_date', 50),
+    queryFn: () => base44.find('threads', { where: [{ field: 'author_type', value: 'student' }] }),
     initialData: [],
   });
 
   // Create megathread mutation
   const createMutation = useMutation({
-    mutationFn: (data) => firebaseClient.entities.Megathread.create({
+    mutationFn: (data) => base44.create('threads', {
       ...data,
       author_type: 'student',
       author_name: user?.displayName || 'Student',

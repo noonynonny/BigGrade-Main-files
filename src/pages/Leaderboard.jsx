@@ -1,6 +1,6 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { base44 } from "../firebaseClient";
+import { base44 } from "../base44Client";
 import { Crown, Star, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from "../utils";

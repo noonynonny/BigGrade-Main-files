@@ -2,7 +2,7 @@ import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "./utils";
 import { GraduationCap, Users, MessageSquare, Briefcase, Search, Zap, UserCircle, Globe, Book, LogOut, Settings, Sun, Moon, Tv, BarChart, Shield, Newspaper } from "lucide-react";
-import { base44 } from "./firebaseClient";
+import { base44 } from "./base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import AccountSetup from './pages/AccountSetup';
 
@@ -18,7 +18,7 @@ export default function Layout({ children, currentPageName }) {
   const queryClient = useQueryClient();
   const [showProfileMenu, setShowProfileMenu] = React.useState(false);
   const [lastMessageCount, setLastMessageCount] = React.useState(0);
-  const [isIdle, setIsIdle] = React.useState(false); // true if user is idle
+  const [isIdle, setIsIdle] = React.useState(false);
   const idleTimeoutRef = React.useRef(null);
 
   // Function to reset the idle timer
@@ -32,14 +32,14 @@ export default function Layout({ children, currentPageName }) {
 
   // Set up activity listeners
   React.useEffect(() => {
-    resetIdleTimer(); // Initialize timer on component mount
+    resetIdleTimer();
 
     const handleActivity = () => resetIdleTimer();
 
     window.addEventListener("mousemove", handleActivity);
     window.addEventListener("keydown", handleActivity);
     window.addEventListener("scroll", handleActivity);
-    window.addEventListener("click", handleActivity); // For touch/mobile devices
+    window.addEventListener("click", handleActivity);
 
     return () => {
       clearTimeout(idleTimeoutRef.current);
@@ -54,22 +54,21 @@ export default function Layout({ children, currentPageName }) {
   const { data: user, isLoading: isUserLoading } = useQuery({
     queryKey: ['currentUser'],
     queryFn: async () => {
-      return new Promise((resolve) => {
-        const unsubscribe = firebaseClient.auth.onAuthStateChanged((user) => {
-          unsubscribe();
-          resolve(user);
-        });
-      });
+      // Check if user is already logged in
+      const currentUser = base44.auth();
+      return currentUser;
     },
     staleTime: Infinity,
   });
 
   // Sign out function
   const signOutMutation = useMutation({
-    mutationFn: () => firebaseClient.auth.signOut(),
+    mutationFn: async () => {
+      base44.signOut();
+    },
     onSuccess: () => {
       queryClient.clear();
-      window.location.href = '/'; // Redirect to home page
+      window.location.href = '/';
     },
   });
 
@@ -78,9 +77,16 @@ export default function Layout({ children, currentPageName }) {
     queryKey: ['notificationCount', user?.uid],
     queryFn: async () => {
       if (!user) return 0;
-      // This would be implemented with Firestore
-      // For now, returning a mock value
-      return 0;
+      // Get notifications from Base44
+      try {
+        const notifications = await base44.find('notifications', {
+          where: [{ field: 'user_id', operator: '==', value: user.uid }]
+        });
+        return notifications.filter(n => !n.is_read).length;
+      } catch (error) {
+        console.error('Error fetching notifications:', error);
+        return 0;
+      }
     },
     enabled: !!user,
   });
@@ -118,31 +124,65 @@ export default function Layout({ children, currentPageName }) {
     );
   }
 
-  // If user is not authenticated, show a simplified layout
+  // If user is not authenticated, show login form
   if (!user) {
+    const [email, setEmail] = React.useState('');
+    const [name, setName] = React.useState('');
+    
+    const handleLogin = async (e) => {
+      e.preventDefault();
+      if (!email) return;
+      
+      try {
+        await base44.signIn(email, name || email.split('@')[0]);
+        queryClient.invalidateQueries(['currentUser']);
+      } catch (error) {
+        console.error('Login error:', error);
+        alert('Login failed. Please try again.');
+      }
+    };
+
     return (
-      <div className="min-h-screen bg-gray-50">
-        <header className="bg-white shadow">
-          <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8 flex justify-between items-center">
-            <div className="flex items-center">
-              <GraduationCap className="h-8 w-8 text-indigo-600" />
-              <h1 className="ml-2 text-3xl font-bold text-gray-900">BigGrade</h1>
-            </div>
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => firebaseClient.auth.signInWithGoogle()}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded"
-              >
-                Sign In with Google
-              </button>
-            </div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8">
+          <div className="flex items-center justify-center mb-6">
+            <GraduationCap className="h-12 w-12 text-indigo-600" />
+            <h1 className="ml-2 text-3xl font-bold text-gray-900">BigGrade</h1>
           </div>
-        </header>
-        <main>
-          <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-            {children}
-          </div>
-        </main>
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                Email
+              </label>
+              <input
+                type="email"
+                id="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                required
+              />
+            </div>
+            <div>
+              <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+                Display Name (Optional)
+              </label>
+              <input
+                type="text"
+                id="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+              />
+            </div>
+            <button
+              type="submit"
+              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded"
+            >
+              Enter App
+            </button>
+          </form>
+        </div>
       </div>
     );
   }

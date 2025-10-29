@@ -1,5 +1,5 @@
 // Utility functions to replace Base44 utils
-import { base44 } from "./firebaseClient";
+import { base44 } from "./base44Client";
 
 // Create page URL (simplified version)
 export const createPageUrl = (page) => {

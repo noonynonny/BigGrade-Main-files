@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "../firebaseClient";
+import { base44 } from "../base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Camera, Save, Shield, Award, Star, Users, Book, Mail, Calendar, User as UserIcon } from "lucide-react";
 import { format } from "date-fns";
@@ -14,7 +14,7 @@ export default function Profile() {
     queryKey: ['currentUser'],
     queryFn: async () => {
       return new Promise((resolve) => {
-        const unsubscribe = firebaseClient.auth.onAuthStateChanged((user) => {
+        const unsubscribe = base44.auth((user) => {
           unsubscribe();
           resolve(user);
         });
@@ -26,7 +26,7 @@ export default function Profile() {
   // Get user profile data from Firestore
   const { data: userProfile, isLoading: isProfileLoading } = useQuery({
     queryKey: ['userProfile', user?.uid],
-    queryFn: () => firebaseClient.entities.User.get(user.uid),
+    queryFn: () => base44.User.get(user.uid),
     enabled: !!user,
   });
 
@@ -41,7 +41,7 @@ export default function Profile() {
 
   // Update user profile mutation
   const updateProfileMutation = useMutation({
-    mutationFn: (data) => firebaseClient.entities.User.update(user.uid, data),
+    mutationFn: (data) => base44.User.update(user.uid, data),
     onSuccess: () => {
       queryClient.invalidateQueries(['userProfile', user?.uid]);
       setIsEditing(false);

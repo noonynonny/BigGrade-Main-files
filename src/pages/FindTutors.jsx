@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "../firebaseClient";
+import { base44 } from "../base44Client";
 import { useQuery } from "@tanstack/react-query";
 import TutorListingCard from "../components/tutorListings/TutorListingCard";
 import { Search } from "lucide-react";
@@ -11,7 +11,7 @@ export default function FindTutors() {
     queryKey: ['currentUser'],
     queryFn: async () => {
       return new Promise((resolve) => {
-        const unsubscribe = firebaseClient.auth.onAuthStateChanged((user) => {
+        const unsubscribe = base44.auth((user) => {
           unsubscribe();
           resolve(user);
         });

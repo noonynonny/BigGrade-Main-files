@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { MessageCircle, User, Calendar, Clock } from "lucide-react";
 import { format } from "date-fns";
-import { base44 } from "../../firebaseClient";
+import { base44 } from "../../base44Client";
 
 export default function MegathreadCard({ thread }) {
   const [replyCount, setReplyCount] = useState(0);
@@ -12,7 +12,7 @@ export default function MegathreadCard({ thread }) {
   useEffect(() => {
     if (!thread?.id) return;
 
-    const unsubscribe = firebaseClient.entities.ThreadReply.subscribe(
+    const unsubscribe = base44.ThreadReply.subscribe(
       { megathread_id: thread.id },
       (replies) => {
         setReplyCount(replies.length);

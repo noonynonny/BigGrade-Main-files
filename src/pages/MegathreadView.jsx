@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { base44 } from "../firebaseClient";
+import { base44 } from "../base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Send, User, MessageSquare } from "lucide-react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
@@ -19,7 +19,7 @@ export default function MegathreadView() {
     queryKey: ['currentUser'],
     queryFn: async () => {
       return new Promise((resolve) => {
-        const unsubscribe = firebaseClient.auth.onAuthStateChanged((user) => {
+        const unsubscribe = base44.auth((user) => {
           unsubscribe();
           resolve(user);
         });
@@ -31,7 +31,7 @@ export default function MegathreadView() {
   // Get megathread data
   const { data: thread, isLoading: threadLoading } = useQuery({
     queryKey: ['megathread', threadId],
-    queryFn: () => firebaseClient.entities.Megathread.get(threadId),
+    queryFn: () => base44.Megathread.get(threadId),
     enabled: !!threadId,
   });
 
@@ -39,7 +39,7 @@ export default function MegathreadView() {
   useEffect(() => {
     if (!threadId) return;
 
-    const unsubscribe = firebaseClient.entities.ThreadReply.subscribe(
+    const unsubscribe = base44.ThreadReply.subscribe(
       { megathread_id: threadId },
       (repliesData) => {
         setReplies(repliesData);
@@ -56,7 +56,7 @@ export default function MegathreadView() {
   }, [replies]);
 
   const createReplyMutation = useMutation({
-    mutationFn: (newReply) => firebaseClient.entities.ThreadReply.create({
+    mutationFn: (newReply) => base44.ThreadReply.create({
       ...newReply,
       megathread_id: threadId,
       author_name: user?.displayName || 'Anonymous',

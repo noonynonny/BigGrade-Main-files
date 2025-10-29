@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "../firebaseClient";
+import { base44 } from "../base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { User, Mail, Shield, Award } from "lucide-react";
 
@@ -19,7 +19,7 @@ export default function AccountSetup() {
     queryKey: ['currentUser'],
     queryFn: async () => {
       return new Promise((resolve) => {
-        const unsubscribe = firebaseClient.auth.onAuthStateChanged((user) => {
+        const unsubscribe = base44.auth((user) => {
           unsubscribe();
           resolve(user);
         });
@@ -30,7 +30,7 @@ export default function AccountSetup() {
 
   // Create user profile mutation
   const createProfileMutation = useMutation({
-    mutationFn: (data) => firebaseClient.entities.User.create(data),
+    mutationFn: (data) => base44.User.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries(['userProfile', user?.uid]);
     },
@@ -71,7 +71,7 @@ export default function AccountSetup() {
             </div>
             <div className="mt-5">
               <button
-                onClick={() => firebaseClient.auth.signInWithGoogle()}
+                onClick={() => base44.signIn()}
                 className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
               >
                 <svg className="h-5 w-5 mr-2" viewBox="0 0 24 24">

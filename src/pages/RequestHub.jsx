@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "../firebaseClient";
+import { base44 } from "../base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Briefcase } from "lucide-react";
 import MarketplaceRequestCard from "../components/marketplace/MarketplaceRequestCard";

@@ -1,7 +1,7 @@
 // API utilities for BigGrade
 // Handles both Firebase operations and Base44 API calls through proxy
 
-import { base44, BASE44_CONFIG } from '../firebaseClient';
+import { base44, BASE44_CONFIG } from "../base44Client";
 
 // Base API configuration
 const API_BASE_URL = process.env.NODE_ENV === 'production' 

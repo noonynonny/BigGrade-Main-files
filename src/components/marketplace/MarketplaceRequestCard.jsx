@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { User, Clock, DollarSign, CheckCircle, XCircle } from "lucide-react";
 import { format } from "date-fns";
 import { createPageUrl } from "../../utils";
-import { base44 } from "../../firebaseClient";
+import { base44 } from "../../base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 export default function MarketplaceRequestCard({ request }) {
@@ -15,7 +15,7 @@ export default function MarketplaceRequestCard({ request }) {
     queryKey: ['currentUser'],
     queryFn: async () => {
       return new Promise((resolve) => {
-        const unsubscribe = firebaseClient.auth.onAuthStateChanged((user) => {
+        const unsubscribe = base44.auth((user) => {
           unsubscribe();
           resolve(user);
         });
@@ -29,7 +29,7 @@ export default function MarketplaceRequestCard({ request }) {
     queryKey: ['vouchCheck', request.id, currentUser?.email],
     queryFn: async () => {
       if (!currentUser?.email) return false;
-      const vouches = await firebaseClient.entities.Vouch.filter({
+      const vouches = await base44.Vouch.filter({
         gig_id: request.id,
         voucher_email: currentUser.email
       });
@@ -40,7 +40,7 @@ export default function MarketplaceRequestCard({ request }) {
 
   // Accept request mutation
   const acceptMutation = useMutation({
-    mutationFn: (status) => firebaseClient.entities.MarketplaceRequest.update(request.id, { status }),
+    mutationFn: (status) => base44.MarketplaceRequest.update(request.id, { status }),
     onSuccess: () => {
       queryClient.invalidateQueries(['marketplaceRequests']);
       setShowAcceptModal(false);
@@ -49,7 +49,7 @@ export default function MarketplaceRequestCard({ request }) {
 
   // Create vouch mutation
   const vouchMutation = useMutation({
-    mutationFn: (vouchData) => firebaseClient.entities.Vouch.create(vouchData),
+    mutationFn: (vouchData) => base44.Vouch.create(vouchData),
     onSuccess: () => {
       queryClient.invalidateQueries(['vouchCheck', request.id, currentUser?.email]);
     },
@@ -63,7 +63,7 @@ export default function MarketplaceRequestCard({ request }) {
     if (!currentUser) return;
     
     // Check if user is a student who can vouch
-    const todaysVouches = await firebaseClient.entities.Vouch.filter({
+    const todaysVouches = await base44.Vouch.filter({
       voucher_email: currentUser.email,
       created_date: '>=', // This would need to be implemented properly
     });

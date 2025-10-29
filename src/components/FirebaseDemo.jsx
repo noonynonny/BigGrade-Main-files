@@ -12,7 +12,7 @@ const FirebaseDemo = () => {
     queryKey: ['currentUser'],
     queryFn: async () => {
       return new Promise((resolve) => {
-        const unsubscribe = firebaseClient.auth.onAuthStateChanged((user) => {
+        const unsubscribe = base44.auth((user) => {
           unsubscribe();
           resolve(user);
         });
@@ -24,12 +24,12 @@ const FirebaseDemo = () => {
   // Get megathreads
   const { data: megathreads, isLoading } = useQuery({
     queryKey: ['demoMegathreads'],
-    queryFn: () => firebaseClient.entities.Megathread.filter({}, '-created_date', 10),
+    queryFn: () => base44.Megathread.filter({}, '-created_date', 10),
   });
 
   // Create megathread mutation
   const createMutation = useMutation({
-    mutationFn: (data) => firebaseClient.entities.Megathread.create(data),
+    mutationFn: (data) => base44.Megathread.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries(['demoMegathreads']);
       setTitle('');
@@ -68,7 +68,7 @@ const FirebaseDemo = () => {
           <h2 className="text-xl font-semibold text-gray-800 mb-4">Sign In Required</h2>
           <p className="text-gray-600 mb-4">Please sign in with Google to use the demo.</p>
           <button
-            onClick={() => firebaseClient.auth.signInWithGoogle()}
+            onClick={() => base44.signIn()}
             className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
           >
             Sign in with Google
