@@ -3,15 +3,31 @@
   publish = "build"
   base = "/"
 
+# Redirects for React Router
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
 
+# Redirect API calls to Base44 proxy (for development)
+[[redirects]]
+  from = "/api/base44/*"
+  to = "https://your-proxy-server-url.com/base44/:splat"
+  status = 200
+
+# Environment variables for Firebase
 [template.environment]
-  REACT_APP_FIREBASE_API_KEY = "Your Firebase API Key"
-  REACT_APP_FIREBASE_AUTH_DOMAIN = "Your Firebase Auth Domain"
-  REACT_APP_FIREBASE_PROJECT_ID = "Your Firebase Project ID"
-  REACT_APP_FIREBASE_STORAGE_BUCKET = "Your Firebase Storage Bucket"
-  REACT_APP_FIREBASE_MESSAGING_SENDER_ID = "Your Firebase Messaging Sender ID"
-  REACT_APP_FIREBASE_APP_ID = "Your Firebase App ID"
+  VITE_FIREBASE_API_KEY = "Your Firebase API Key"
+  VITE_FIREBASE_AUTH_DOMAIN = "Your Firebase Auth Domain"
+  VITE_FIREBASE_PROJECT_ID = "Your Firebase Project ID"
+  VITE_FIREBASE_STORAGE_BUCKET = "Your Firebase Storage Bucket"
+  VITE_FIREBASE_MESSAGING_SENDER_ID = "Your Firebase Messaging Sender ID"
+  VITE_FIREBASE_APP_ID = "Your Firebase App ID"
+  
+# Environment variables for Base44
+  VITE_BASE44_API_KEY = "Your Base44 API Key"
+  VITE_BASE44_APP_ID = "Your Base44 App ID"
+
+# Functions directory for Netlify Functions
+[functions]
+  directory = "netlify/functions"
