@@ -19,6 +19,8 @@ export default function Layout({ children, currentPageName }) {
   const [showProfileMenu, setShowProfileMenu] = React.useState(false);
   const [lastMessageCount, setLastMessageCount] = React.useState(0);
   const [isIdle, setIsIdle] = React.useState(false);
+  const [email, setEmail] = React.useState('');
+  const [name, setName] = React.useState('');
   const idleTimeoutRef = React.useRef(null);
 
   // Function to reset the idle timer
@@ -126,9 +128,6 @@ export default function Layout({ children, currentPageName }) {
 
   // If user is not authenticated, show login form
   if (!user) {
-    const [email, setEmail] = React.useState('');
-    const [name, setName] = React.useState('');
-    
     const handleLogin = async (e) => {
       e.preventDefault();
       if (!email) return;
