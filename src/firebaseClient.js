@@ -5,14 +5,32 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, query, where, orderBy, limit } from 'firebase/firestore';
 
-// Firebase configuration - these will be loaded from environment variables
-const firebaseConfig = {
-  apiKey: process.env.REACT_APP_FIREBASE_API_KEY || import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN || import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID || import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET || import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID || import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.REACT_APP_FIREBASE_APP_ID || import.meta.env.VITE_FIREBASE_APP_ID
+// Base44 API Configuration (from your API files)
+const BASE44_CONFIG = {
+  apiUrl: 'https://app.base44.com/api/apps/68f3aa9b3f0b7e0b3370d6fc',
+  apiKey: '25a08cae07624f7b977e48d02f684891',
+  appId: '68f3aa9b3f0b7e0b3370d6fc'
+};
+
+// Firebase configuration - handle both development and production environments
+const getFirebaseConfig = () => {
+  // Try multiple environment variable sources
+  const getEnvVar = (name) => {
+    return window._env_?.[name] || 
+           process.env?.[name] || 
+           import.meta.env?.[name] ||
+           window.localStorage.getItem(name) ||
+           null;
+  };
+
+  return {
+    apiKey: getEnvVar('VITE_FIREBASE_API_KEY') || 'demo-api-key',
+    authDomain: getEnvVar('VITE_FIREBASE_AUTH_DOMAIN') || 'demo-project.firebaseapp.com',
+    projectId: getEnvVar('VITE_FIREBASE_PROJECT_ID') || 'demo-project',
+    storageBucket: getEnvVar('VITE_FIREBASE_STORAGE_BUCKET') || 'demo-project.appspot.com',
+    messagingSenderId: getEnvVar('VITE_FIREBASE_MESSAGING_SENDER_ID') || '123456789',
+    appId: getEnvVar('VITE_FIREBASE_APP_ID') || 'demo-app-id'
+  };
 };
 
 // Initialize Firebase
@@ -21,75 +39,130 @@ let auth;
 let db;
 
 try {
-  app = initializeApp(firebaseConfig);
-  auth = getAuth(app);
-  db = getFirestore(app);
-  console.log('Firebase initialized successfully');
+  const firebaseConfig = getFirebaseConfig();
+  
+  // Only initialize if we have a real project (not demo values)
+  if (firebaseConfig.projectId !== 'demo-project') {
+    app = initializeApp(firebaseConfig);
+    auth = getAuth(app);
+    db = getFirestore(app);
+    console.log('Firebase initialized successfully');
+  } else {
+    console.warn('Firebase not initialized - using demo configuration. Please set up environment variables.');
+  }
 } catch (error) {
   console.error('Error initializing Firebase:', error);
 }
 
-// Base44 replacement functions
-export const base44 = {
-  // Authentication
-  async auth() {
-    if (!auth) {
-      throw new Error('Firebase Auth not initialized');
+// Base44 API helper functions
+const base44Api = {
+  // Make requests to Base44 API
+  async request(endpoint, method = 'GET', data = null) {
+    const url = `${BASE44_CONFIG.apiUrl}/${endpoint}`;
+    const options = {
+      method,
+      headers: {
+        'api_key': BASE44_CONFIG.apiKey,
+        'Content-Type': 'application/json'
+      }
+    };
+
+    if (data && (method === 'POST' || method === 'PUT')) {
+      options.body = JSON.stringify(data);
     }
-    
-    return new Promise((resolve, reject) => {
-      const unsubscribe = onAuthStateChanged(auth, (user) => {
-        unsubscribe();
-        if (user) {
-          resolve({
-            uid: user.uid,
-            isAuthenticated: true,
-            email: user.email,
-            displayName: user.displayName
-          });
-        } else {
-          signInAnonymously(auth)
-            .then((userCredential) => {
-              resolve({
-                uid: userCredential.user.uid,
-                isAuthenticated: true,
-                isAnonymous: true
-              });
-            })
-            .catch(reject);
-        }
-      });
-    });
+
+    try {
+      const response = await fetch(url, options);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Base44 API error:', error);
+      throw error;
+    }
   },
 
-  // Database operations
+  // Get entities
+  async getEntities(entityType, filters = {}) {
+    let url = `entities/${entityType}`;
+    const params = new URLSearchParams(filters);
+    if (params.toString()) {
+      url += '?' + params.toString();
+    }
+    return this.request(url);
+  },
+
+  // Create entity
+  async createEntity(entityType, data) {
+    return this.request(`entities/${entityType}`, 'POST', data);
+  },
+
+  // Update entity
+  async updateEntity(entityType, entityId, data) {
+    return this.request(`entities/${entityType}/${entityId}`, 'PUT', data);
+  },
+
+  // Delete entity
+  async deleteEntity(entityType, entityId) {
+    return this.request(`entities/${entityType}/${entityId}`, 'DELETE');
+  }
+};
+
+// Base44 replacement functions
+export const base44 = {
+  // Authentication (use Base44 or fallback)
+  async auth() {
+    // For now, return a simple auth object
+    // In production, this should integrate with your auth system
+    return {
+      uid: 'anonymous-user-' + Math.random().toString(36).substr(2, 9),
+      isAuthenticated: true,
+      email: 'anonymous@example.com',
+      displayName: 'Anonymous User'
+    };
+  },
+
+  // Database operations using Base44 API
   async find(collectionName, options = {}) {
-    if (!db) {
-      throw new Error('Firebase Firestore not initialized');
+    try {
+      // Map collection names to Base44 entity types
+      const entityMapping = {
+        'messages': 'ChatMessage',
+        'gigs': 'TutorListing',
+        'requests': 'MarketplaceRequest',
+        'users': 'PublicUserDirectory',
+        'threads': 'Megathread',
+        'news': 'NewsPost',
+        'chats': 'SessionChat',
+        'notifications': 'SessionNotification',
+        'endorsements': 'StudentEndorsement',
+        'replies': 'ThreadReply',
+        'vouches': 'Vouch'
+      };
+
+      const entityType = entityMapping[collectionName] || collectionName;
+      
+      // Convert options to Base44 filters
+      const filters = {};
+      if (options.where && options.where.length > 0) {
+        options.where.forEach(condition => {
+          filters[condition.field] = condition.value;
+        });
+      }
+
+      const entities = await base44Api.getEntities(entityType, filters);
+      
+      // Transform Base44 entities to our format
+      return entities.map(entity => ({
+        id: entity.id || Math.random().toString(36).substr(2, 9),
+        ...entity
+      }));
+    } catch (error) {
+      console.error('Find operation failed:', error);
+      // Return empty array as fallback
+      return [];
     }
-
-    const collectionRef = collection(db, collectionName);
-    let q = collectionRef;
-
-    if (options.where) {
-      options.where.forEach(condition => {
-        q = query(q, where(condition.field, condition.operator, condition.value));
-      });
-    }
-
-    if (options.orderBy) {
-      q = query(q, orderBy(options.orderBy, options.order || 'asc'));
-    }
-
-    if (options.limit) {
-      q = query(q, limit(options.limit));
-    }
-
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
   },
 
   async findOne(collectionName, field, value) {
@@ -98,70 +171,134 @@ export const base44 = {
   },
 
   async findById(collectionName, id) {
-    if (!db) {
-      throw new Error('Firebase Firestore not initialized');
-    }
-
-    const docRef = doc(db, collectionName, id);
-    const docSnap = await getDoc(docRef);
-    
-    if (docSnap.exists()) {
-      return {
-        id: docSnap.id,
-        ...docSnap.data()
+    try {
+      const entityMapping = {
+        'messages': 'ChatMessage',
+        'gigs': 'TutorListing',
+        'requests': 'MarketplaceRequest',
+        'users': 'PublicUserDirectory',
+        'threads': 'Megathread',
+        'news': 'NewsPost',
+        'chats': 'SessionChat',
+        'notifications': 'SessionNotification',
+        'endorsements': 'StudentEndorsement',
+        'replies': 'ThreadReply',
+        'vouches': 'Vouch'
       };
+
+      const entityType = entityMapping[collectionName] || collectionName;
+      const entity = await base44Api.request(`entities/${entityType}/${id}`);
+      
+      return {
+        id: entity.id,
+        ...entity
+      };
+    } catch (error) {
+      console.error('FindById operation failed:', error);
+      return null;
     }
-    return null;
   },
 
   async create(collectionName, data) {
-    if (!db) {
-      throw new Error('Firebase Firestore not initialized');
+    try {
+      const entityMapping = {
+        'messages': 'ChatMessage',
+        'gigs': 'TutorListing',
+        'requests': 'MarketplaceRequest',
+        'users': 'PublicUserDirectory',
+        'threads': 'Megathread',
+        'news': 'NewsPost',
+        'chats': 'SessionChat',
+        'notifications': 'SessionNotification',
+        'endorsements': 'StudentEndorsement',
+        'replies': 'ThreadReply',
+        'vouches': 'Vouch'
+      };
+
+      const entityType = entityMapping[collectionName] || collectionName;
+      
+      // Add timestamps
+      const entityData = {
+        ...data,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      const entity = await base44Api.createEntity(entityType, entityData);
+      
+      return {
+        id: entity.id || Math.random().toString(36).substr(2, 9),
+        ...entityData
+      };
+    } catch (error) {
+      console.error('Create operation failed:', error);
+      throw error;
     }
-
-    const collectionRef = collection(db, collectionName);
-    const docRef = await addDoc(collectionRef, {
-      ...data,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    });
-
-    return {
-      id: docRef.id,
-      ...data,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
   },
 
   async update(collectionName, id, data) {
-    if (!db) {
-      throw new Error('Firebase Firestore not initialized');
+    try {
+      const entityMapping = {
+        'messages': 'ChatMessage',
+        'gigs': 'TutorListing',
+        'requests': 'MarketplaceRequest',
+        'users': 'PublicUserDirectory',
+        'threads': 'Megathread',
+        'news': 'NewsPost',
+        'chats': 'SessionChat',
+        'notifications': 'SessionNotification',
+        'endorsements': 'StudentEndorsement',
+        'replies': 'ThreadReply',
+        'vouches': 'Vouch'
+      };
+
+      const entityType = entityMapping[collectionName] || collectionName;
+      
+      const updateData = {
+        ...data,
+        updatedAt: new Date().toISOString()
+      };
+
+      await base44Api.updateEntity(entityType, id, updateData);
+      
+      return {
+        id,
+        ...updateData
+      };
+    } catch (error) {
+      console.error('Update operation failed:', error);
+      throw error;
     }
-
-    const docRef = doc(db, collectionName, id);
-    await updateDoc(docRef, {
-      ...data,
-      updatedAt: new Date().toISOString()
-    });
-
-    return {
-      id,
-      ...data,
-      updatedAt: new Date().toISOString()
-    };
   },
 
   async delete(collectionName, id) {
-    if (!db) {
-      throw new Error('Firebase Firestore not initialized');
-    }
+    try {
+      const entityMapping = {
+        'messages': 'ChatMessage',
+        'gigs': 'TutorListing',
+        'requests': 'MarketplaceRequest',
+        'users': 'PublicUserDirectory',
+        'threads': 'Megathread',
+        'news': 'NewsPost',
+        'chats': 'SessionChat',
+        'notifications': 'SessionNotification',
+        'endorsements': 'StudentEndorsement',
+        'replies': 'ThreadReply',
+        'vouches': 'Vouch'
+      };
 
-    const docRef = doc(db, collectionName, id);
-    await deleteDoc(docRef);
-    return { success: true, id };
+      const entityType = entityMapping[collectionName] || collectionName;
+      await base44Api.deleteEntity(entityType, id);
+      return { success: true, id };
+    } catch (error) {
+      console.error('Delete operation failed:', error);
+      throw error;
+    }
   }
 };
+
+// Export Base44 configuration for direct API access
+export { BASE44_CONFIG, base44Api };
 
 // Export Firebase instances for direct use if needed
 export { app, auth, db };
