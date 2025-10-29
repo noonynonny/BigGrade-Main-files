@@ -17,55 +17,41 @@ import AccountSetup from './pages/AccountSetup';
 import Admin from './pages/Admin';
 
 // Create a client
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: 1,
+      staleTime: 5 * 60 * 1000, // 5 minutes
+    },
+  },
+});
 
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <Router>
         <Routes>
-          <Route path="/" element={<Layout currentPageName="Dashboard">
-            <StudentsDashboard />
-          </Layout>} />
-          <Route path="/StudentDashboard" element={<Layout currentPageName="Dashboard">
-            <StudentsDashboard />
-          </Layout>} />
-          <Route path="/MegathreadView" element={<Layout currentPageName="Megathreads">
-            <MegathreadView />
-          </Layout>} />
-          <Route path="/ChatList" element={<Layout currentPageName="Chat">
-            <ChatList />
-          </Layout>} />
-          <Route path="/RequestHub" element={<Layout currentPageName="Marketplace">
-            <RequestHub />
-          </Layout>} />
-          <Route path="/FindTutors" element={<Layout currentPageName="Find Tutors">
-            <FindTutors />
-          </Layout>} />
-          <Route path="/MyGigs" element={<Layout currentPageName="My Gigs">
-            <MyGigs />
-          </Layout>} />
-          <Route path="/Leaderboard" element={<Layout currentPageName="Leaderboard">
-            <Leaderboard />
-          </Layout>} />
-          <Route path="/GlobalChat" element={<Layout currentPageName="Global Chat">
-            <GlobalChat />
-          </Layout>} />
-          <Route path="/News" element={<Layout currentPageName="News">
-            <News />
-          </Layout>} />
-          <Route path="/Directory" element={<Layout currentPageName="Directory">
-            <Directory />
-          </Layout>} />
-          <Route path="/Profile" element={<Layout currentPageName="Profile">
-            <Profile />
-          </Layout>} />
-          <Route path="/AccountSetup" element={<Layout currentPageName="AccountSetup">
-            <AccountSetup />
-          </Layout>} />
-          <Route path="/Admin" element={<Layout currentPageName="Admin">
-            <Admin />
-          </Layout>} />
+          <Route path="/" element={<Layout />}>
+            <Route index element={<StudentsDashboard />} />
+            <Route path="StudentDashboard" element={<StudentsDashboard />} />
+            <Route path="Dashboard" element={<StudentsDashboard />} />
+            <Route path="Megathreads" element={<StudentsDashboard />} />
+            <Route path="MegathreadView" element={<MegathreadView />} />
+            <Route path="Chat" element={<ChatList />} />
+            <Route path="ChatList" element={<ChatList />} />
+            <Route path="Marketplace" element={<RequestHub />} />
+            <Route path="RequestHub" element={<RequestHub />} />
+            <Route path="FindTutors" element={<FindTutors />} />
+            <Route path="MyGigs" element={<MyGigs />} />
+            <Route path="Leaderboard" element={<Leaderboard />} />
+            <Route path="GlobalChat" element={<GlobalChat />} />
+            <Route path="News" element={<News />} />
+            <Route path="Directory" element={<Directory />} />
+            <Route path="Profile" element={<Profile />} />
+            <Route path="AccountSetup" element={<AccountSetup />} />
+            <Route path="Admin" element={<Admin />} />
+          </Route>
         </Routes>
       </Router>
     </QueryClientProvider>

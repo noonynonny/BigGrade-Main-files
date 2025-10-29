@@ -67,14 +67,28 @@ export const firebaseAuth = {
     }
   },
 
-  // Sign in with Google
+  // Sign in with Google (using redirect for better compatibility)
   async signInWithGoogle() {
     try {
-      const result = await signInWithPopup(auth, googleProvider);
-      return result.user;
+      // Use redirect instead of popup to avoid CORS issues
+      const { signInWithRedirect } = await import('firebase/auth');
+      await signInWithRedirect(auth, googleProvider);
+      // The page will reload after redirect, so we don't return here
     } catch (error) {
       console.error('Google sign in error:', error);
       throw error;
+    }
+  },
+
+  // Get redirect result after Google sign in
+  async getRedirectResult() {
+    try {
+      const { getRedirectResult } = await import('firebase/auth');
+      const result = await getRedirectResult(auth);
+      return result?.user || null;
+    } catch (error) {
+      console.error('Redirect result error:', error);
+      return null;
     }
   },
 
