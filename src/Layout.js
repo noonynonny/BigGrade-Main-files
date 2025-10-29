@@ -57,7 +57,19 @@ export default function Layout({ children, currentPageName }) {
     queryKey: ['currentUser'],
     queryFn: async () => {
       // Check if user is already logged in
-      const currentUser = base44.auth();
+      let currentUser = base44.auth();
+      
+      // If no user, create an anonymous one automatically
+      if (!currentUser) {
+        currentUser = {
+          uid: 'anonymous_' + Date.now(),
+          email: 'anonymous@biggrade.app',
+          displayName: 'Guest User',
+          photoURL: null
+        };
+        // Don't save to localStorage for anonymous users
+      }
+      
       return currentUser;
     },
     staleTime: Infinity,
@@ -126,8 +138,8 @@ export default function Layout({ children, currentPageName }) {
     );
   }
 
-  // If user is not authenticated, show login form
-  if (!user) {
+  // Skip login form - always show app with user
+  if (false && !user) {
     const handleLogin = async (e) => {
       e.preventDefault();
       if (!email) return;
