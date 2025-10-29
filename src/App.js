@@ -14,6 +14,7 @@ import News from './pages/News';
 import Directory from './pages/Directory';
 import Profile from './pages/Profile';
 import AccountSetup from './pages/AccountSetup';
+import Admin from './pages/Admin';
 
 // Create a client
 const queryClient = new QueryClient();
@@ -61,6 +62,9 @@ function App() {
           </Layout>} />
           <Route path="/AccountSetup" element={<Layout currentPageName="AccountSetup">
             <AccountSetup />
+          </Layout>} />
+          <Route path="/Admin" element={<Layout currentPageName="Admin">
+            <Admin />
           </Layout>} />
         </Routes>
       </Router>
