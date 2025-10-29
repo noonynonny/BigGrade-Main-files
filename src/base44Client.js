@@ -105,36 +105,18 @@ const auth = {
     localStorage.setItem('biggrade_user', JSON.stringify(user));
   },
   
-  // Sign in (create or get user from Base44)
+  // Sign in (create simple local user)
   async signIn(email, displayName) {
     try {
-      // Check if user exists in PublicUserDirectory
-      const users = await base44Api.getEntities('PublicUserDirectory');
-      let user = users.find(u => u.user_email === email);
-      
-      if (!user) {
-        // Create new user
-        user = await base44Api.createEntity('PublicUserDirectory', {
-          user_email: email,
-          full_name: displayName || email.split('@')[0],
-          user_type: 'student',
-          peer_points: 0,
-          tutor_rating: 0,
-          student_rating: 0,
-          last_active: new Date().toISOString()
-        });
-      } else {
-        // Update last active
-        await base44Api.updateEntity('PublicUserDirectory', user.id, {
-          last_active: new Date().toISOString()
-        });
-      }
+      // Create a simple user object without API call
+      // The user will be created in Base44 when they perform actions
+      const userId = 'user_' + btoa(email).replace(/=/g, '').substring(0, 16);
       
       const authUser = {
-        uid: user.id,
-        email: user.user_email,
-        displayName: user.full_name,
-        photoURL: user.avatar_url || null
+        uid: userId,
+        email: email,
+        displayName: displayName || email.split('@')[0],
+        photoURL: null
       };
       
       this.setCurrentUser(authUser);
